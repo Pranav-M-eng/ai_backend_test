@@ -1,15 +1,6 @@
-from flask import Flask, request, jsonify
-import requests, os
-from flask_cors import CORS
-
-app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
-
-API_KEY = os.getenv("OPENAI_KEY")
-
 def call_ai(prompt):
     if not API_KEY:
-        return '{"error":"OPENAI_KEY not set on server"}'
+        raise Exception("OPENAI_KEY not set on server")
 
     r = requests.post(
         "https://api.openai.com/v1/chat/completions",
@@ -24,21 +15,25 @@ def call_ai(prompt):
         },
         timeout=30
     )
-    return r.json()["choices"][0]["message"]["content"]
 
+    if r.status_code != 200:
+        # Log full error from OpenAI
+        raise Exception(f"OpenAI error {r.status_code}: {r.text}")
 
-@app.route("/")
-def home():
-    return "Backend is running!"
+    data = r.json()
+    return data["choices"][0]["message"]["content"]
+
 
 @app.route("/analyze", methods=["POST", "OPTIONS"])
 def analyze():
     if request.method == "OPTIONS":
         return "", 204
 
-    user_arg = request.json.get("text", "")
+    try:
+        body = request.get_json(force=True)
+        user_arg = body.get("text", "")
 
-    prompt = f"""
+        prompt = f"""
 You are a neutral judge. Analyze this argument and return JSON with:
 clarity_score, logical_consistency_score, evidence_score,
 engagement_with_opponent_score, fallacies_detected, short_feedback.
@@ -47,11 +42,9 @@ Argument:
 "{user_arg}"
 """
 
-    result = call_ai(prompt)
-    return jsonify({"result": result})
+        result = call_ai(prompt)
+        return jsonify({"result": result})
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))  # Railway provides PORT
-    app.run(host="0.0.0.0", port=port)
-
-
+    except Exception as e:
+        # Return the actual error to frontend (for debugging)
+        return jsonify({"error": str(e)}), 500
