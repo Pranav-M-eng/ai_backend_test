@@ -1,3 +1,12 @@
+from flask import Flask, request, jsonify
+import requests, os
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}})
+
+API_KEY = os.getenv("OPENAI_KEY")
+
 def call_ai(prompt):
     if not API_KEY:
         raise Exception("OPENAI_KEY not set on server")
@@ -17,11 +26,15 @@ def call_ai(prompt):
     )
 
     if r.status_code != 200:
-        # Log full error from OpenAI
         raise Exception(f"OpenAI error {r.status_code}: {r.text}")
 
     data = r.json()
     return data["choices"][0]["message"]["content"]
+
+
+@app.route("/")
+def home():
+    return "Backend is running!"
 
 
 @app.route("/analyze", methods=["POST", "OPTIONS"])
@@ -41,10 +54,13 @@ engagement_with_opponent_score, fallacies_detected, short_feedback.
 Argument:
 "{user_arg}"
 """
-
         result = call_ai(prompt)
         return jsonify({"result": result})
 
     except Exception as e:
-        # Return the actual error to frontend (for debugging)
         return jsonify({"error": str(e)}), 500
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
