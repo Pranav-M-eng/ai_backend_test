@@ -1,13 +1,12 @@
 from flask import Flask, request, jsonify
-import requests, os, json
-from dotenv import load_dotenv
+import requests, os
 from flask_cors import CORS
 
-load_dotenv()
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 API_KEY = os.getenv("OPENAI_KEY")
+
 
 def call_ai(prompt):
     r = requests.post(
@@ -47,3 +46,4 @@ Argument:
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))  # Railway provides PORT
     app.run(host="0.0.0.0", port=port)
+
