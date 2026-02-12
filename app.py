@@ -12,24 +12,36 @@ def call_ai(prompt):
         raise Exception("OPENAI_KEY not set on server")
 
     r = requests.post(
-        "https://api.openai.com/v1/chat/completions",
+        "https://api.openai.com/v1/responses",
         headers={
             "Authorization": f"Bearer {API_KEY}",
             "Content-Type": "application/json"
         },
         json={
             "model": "gpt-4.1-mini",
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.2
+            "input": prompt
         },
-        timeout=30
+        timeout=60
     )
 
     if r.status_code != 200:
+        # Return the actual OpenAI error to logs
         raise Exception(f"OpenAI error {r.status_code}: {r.text}")
 
     data = r.json()
-    return data["choices"][0]["message"]["content"]
+
+    # Safely extract text from Responses API
+    text_parts = []
+    for item in data.get("output", []):
+        for content in item.get("content", []):
+            if content.get("type") == "output_text":
+                text_parts.append(content.get("text", ""))
+
+    if not text_parts:
+        raise Exception(f"No text output from OpenAI: {data}")
+
+    return "".join(text_parts)
+
 
 
 @app.route("/")
@@ -64,3 +76,4 @@ Argument:
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
+
