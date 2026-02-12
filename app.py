@@ -7,8 +7,10 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 API_KEY = os.getenv("OPENAI_KEY")
 
-
 def call_ai(prompt):
+    if not API_KEY:
+        return '{"error":"OPENAI_KEY not set on server"}'
+
     r = requests.post(
         "https://api.openai.com/v1/chat/completions",
         headers={
@@ -19,16 +21,21 @@ def call_ai(prompt):
             "model": "gpt-4.1-mini",
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.2
-        }
+        },
+        timeout=30
     )
     return r.json()["choices"][0]["message"]["content"]
+
 
 @app.route("/")
 def home():
     return "Backend is running!"
 
-@app.route("/analyze", methods=["POST"])
+@app.route("/analyze", methods=["POST", "OPTIONS"])
 def analyze():
+    if request.method == "OPTIONS":
+        return "", 204
+
     user_arg = request.json.get("text", "")
 
     prompt = f"""
@@ -46,4 +53,5 @@ Argument:
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))  # Railway provides PORT
     app.run(host="0.0.0.0", port=port)
+
 
